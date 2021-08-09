@@ -9,6 +9,9 @@ library('igraph')
 #beta: false discovery rate
 #k: max component size tested
 #delta: threshold for reduced influence graph (struct)
+#numtrials: number of trials for monte carlo
+#mode: info returns groups of nodes and pvalues as list. mat returns binary adjacency 
+#matrix representation of only significant groups
 #trace: should it print results for each threshold?
 FDR <- function(dats, struct,alpha,beta,k,delta,numtrials,mode=c('info','mat'),trace=FALSE) {
   

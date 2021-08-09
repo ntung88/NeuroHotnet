@@ -14,6 +14,12 @@ library(R.matlab)
 setwd('~/Desktop/NeuroHotnetHD')
 
 #Function to load connectivity matrix and run weighted diffusion process on it
+#mat: matrix representation of the graph to run diffusion on
+#gamma: flow rate parameter
+#thresh: pre-threshold before running diffusion
+#weighted: consider magnitudes of entries in mat (weights on edges)?
+#trans: convert to transition matrix after diffusion (row and col sums 1)?
+#plot:plot stages?
 heat <- function(mat,gamma,thresh,weighted=TRUE,trans=FALSE,plot=FALSE) {
   
   #For weighted diffusion we don't thresh old
