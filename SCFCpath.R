@@ -107,8 +107,8 @@ SCFCpath <- function(y,P,siglam=10,sigmu=5,maxits=500,method="glasso",etaInd=1,m
     # invopd = nearPD(fitted$w)$mat
     invopd = fitted$w
     hold_invomg[[i]]= invopd
-    fitBIC[i]= -determinant(omegpd,logarithm = TRUE)$modulus+sum(diag(s%*%omegpd))+log(T)/T*sum(omegpd[upper.tri(omegpd)]!=0)
-    # fitBIC[i]= EBIC(s,omegpd,284)
+    # fitBIC[i]= -determinant(omegpd,logarithm = TRUE)$modulus+sum(diag(s%*%omegpd))+log(T)/T*sum(omegpd[upper.tri(omegpd)]!=0)
+    fitBIC[i]= EBIC(s,omegpd,284)
   }
   indloc_init=which(fitBIC==min(fitBIC))
   OmegaN_init=as.matrix(hold_omeg[[indloc_init]])
@@ -328,8 +328,8 @@ for(clen in 1:length(grids)){
         Estimates$del[[clen]]=abs(objfunc[niters-1]-objfunc[niters])/abs(objfunc[niters]); #change in obj func at covergence
         Estimates$Time[[clen]]=endtime[!is.na(endtime)]
         Estimates$Flag[[clen]]=0;
-        Estimates$BIC[[clen]]=-determinant(OmegaN,logarithm = TRUE)$modulus+sum(s*OmegaN)+penalty*sum(OmegaN[upper.tri(OmegaN)]!=0)
-        # Estimates$BIC[[clen]]=EBIC(s,OmegaN,284)
+        # Estimates$BIC[[clen]]=-determinant(OmegaN,logarithm = TRUE)$modulus+sum(s*OmegaN)+penalty*sum(OmegaN[upper.tri(OmegaN)]!=0)
+        Estimates$BIC[[clen]]=EBIC(s,0.01*OmegaN,284)
         break
       }
       else{

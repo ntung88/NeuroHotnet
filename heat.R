@@ -14,19 +14,14 @@ library(R.matlab)
 setwd('~/Desktop/NeuroHotnetHD')
 
 #Function to load connectivity matrix and run weighted diffusion process on it
-heat <- function(gamma,thresh,weighted=TRUE,normed=TRUE,trans=FALSE,plot=FALSE) {
-  dat.dir = "~/Desktop/2020NeuroHotnet/Onsets"
-  ons.file.dir = dir(dat.dir, pattern = "*", full.names = TRUE)
+heat <- function(mat,gamma,thresh,weighted=TRUE,trans=FALSE,plot=FALSE) {
   
-  ### Load the structural weights 
-  final.mat = readMat('whole_brain_AAL2.mat')$connectivity
-  
-  #For weighted diffusion we don't threshold
+  #For weighted diffusion we don't thresh old
   if (weighted) {
     # adj = final.mat > 0
-    adj = final.mat
+    adj = mat
   } else {
-    adj = final.mat > thresh
+    adj = mat > thresh
   }
   
   #Tools to vizualize the process if plot is set to True
@@ -48,12 +43,11 @@ heat <- function(gamma,thresh,weighted=TRUE,normed=TRUE,trans=FALSE,plot=FALSE) 
   
   #For weighted diffusion we normalize by degree and end up with nonnegative
   #values. For unweighted we just keep the binary adjacency matrix
-  if(normed) {
-    norm = diag(apply(adj, 2, sum))
-    norm = norm^(-1/2)
-    norm[which(norm==Inf)] <- 0
-    adj = norm %*% final.mat %*% norm
-  }
+  
+  norm = diag(apply(adj, 2, sum))
+  norm = norm^(-1/2)
+  norm[which(norm==Inf)] <- 0
+  adj = norm %*% adj %*% norm
   
   D = diag(apply(adj, 2, sum))
   A = adj
@@ -96,24 +90,19 @@ heat <- function(gamma,thresh,weighted=TRUE,normed=TRUE,trans=FALSE,plot=FALSE) 
 }
 
 #Like heat but randomized, useful for simulations
-rheat <- function(gamma,thresh,weighted=TRUE) {
-  dat.dir = "~/Desktop/2020NeuroHotnet/Onsets"
-  ons.file.dir = dir(dat.dir, pattern = "*", full.names = TRUE)
+rheat <- function(mat,gamma,thresh,weighted=TRUE) {
   
-  ### Load the structural weights 
-  final.mat = readMat('whole_brain_AAL2.mat')$connectivity
-  #Shuffle and resymmetrize
-  final.mat = final.mat[sample(nrow(final.mat)),sample(ncol(final.mat))]
-  final.mat = (final.mat + t(final.mat))/2
+  mat = mat[sample(nrow(mat)),sample(ncol(mat))]
+  mat = (mat + t(mat))/2
   
   if (weighted) {
-    adj = final.mat > 0
+    adj = mat > 0
     norm = diag(apply(adj, 2, sum))
     norm = norm^(-1/2)
     norm[which(norm==Inf)] <- 0
-    adj = norm %*% final.mat %*% norm
+    adj = norm %*% mat %*% norm
   } else {
-    adj = final.mat > thresh
+    adj = mat > thresh
   }
   
   D = diag(apply(adj, 2, sum))

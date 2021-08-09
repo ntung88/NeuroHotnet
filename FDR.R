@@ -10,7 +10,7 @@ library('igraph')
 #k: max component size tested
 #delta: threshold for reduced influence graph (struct)
 #trace: should it print results for each threshold?
-FDR <- function(dats, struct,alpha,beta,k,delta,numtrials,trace=FALSE) {
+FDR <- function(dats, struct,alpha,beta,k,delta,numtrials,mode=c('info','mat'),trace=FALSE) {
   
   #Works for when dats isn't a list too
   if(!is.list(dats)) {dats = list(dats)}
@@ -70,52 +70,65 @@ FDR <- function(dats, struct,alpha,beta,k,delta,numtrials,trace=FALSE) {
   }
   
   grs = Filter(function(x) length(x) >= s, subs)
-  return(list('groups'=grs,
-              'pvals'=formatC(pvals[lengths(grs)],format='e',digits=2)))
+  mode = match.arg(mode)
+  if(mode=='info') {
+    return(list('groups'=grs,
+                'pvals'=formatC(pvals[lengths(grs)],format='e',digits=2)))
+  } else if (mode=='mat') {
+    if(s > k+1) {
+      return(NaN)
+    }
+    for(group in Filter(function(x) length(x) < s, subs)) {
+      model[group,] = 0
+      model[,group] = 0
+    }
+    return(model>0)
+  }
 }
 
 #Same as FDR but returns binary matrix form of results, not list of groups
 #Note this only works for a single observation matrix, doesn't average across multiple
-FDR_Mat <- function(dat, struct,alpha,beta,k,delta,numtrials) {
-  
-  En = H(dat,struct,delta)
-  stopifnot(min(En) >= 0 && isSymmetric(En))
-  
-  betas = integer(k)
-  sofar = 0
-  for(i in k:2) {
-    betas[i] = beta/2^(k-i+1)
-    sofar = sofar + betas[i]
-  }
-  betas[1] = beta - sofar
-  
-  samp = SubCounts(En)
-  mc = MC(dat,struct,numtrials,delta,pthresh=samp)
- 
-  #Look for smallest S that is statistically significant and satisfies FDR condition
-  s = 1
-  while(s <= k) {
-    if (mc$pvals[s] <= alpha/k && samp[s] >= mc$counts[s]/betas[s]) {
-      break
-    }
-    s = s + 1
-  }
-  if(s == k+1) {
-    print('No s satisfies conditions!')
-    return(NaN)
-  } else {
-    print(sprintf('FOUND: s=%d',s))
-  }
-  
-  #zero out non connected components
-  subs = SubNetworks(En)
-  for(group in Filter(function(x) length(x) < s, subs)) {
-    En[group,] = 0
-    En[,group] = 0
-  }
-  
-  return(En>0)
-}
+# FDR_Mat <- function(dat, struct,alpha,beta,k,delta,numtrials) {
+#   
+#   En = H(dat,struct,delta)
+#   stopifnot(min(En) >= 0 && isSymmetric(En))
+#   
+#   betas = integer(k)
+#   sofar = 0
+#   for(i in k:2) {
+#     betas[i] = beta/2^(k-i+1)
+#     sofar = sofar + betas[i]
+#   }
+#   betas[1] = beta - sofar
+#   
+#   samp = SubCounts(En)
+#   mc = MC(dat,struct,numtrials,delta,pthresh=samp)
+#  
+#   #Look for smallest S that is statistically significant and satisfies FDR condition
+#   s = 1
+#   while(s <= k) {
+#     if (mc$pvals[s] <= alpha/k && samp[s] >= mc$counts[s]/betas[s]) {
+#       break
+#     }
+#     s = s + 1
+#   }
+#   if(s == k+1) {
+#     print('No s satisfies conditions!')
+#     return(NaN)
+#   }
+#   
+#   print(sprintf('FOUND: s=%d',s))
+#   return(En)
+#   
+#   # #zero out non connected components
+#   # subs = SubNetworks(En)
+#   # for(group in Filter(function(x) length(x) < s, subs)) {
+#   #   En[group,] = 0
+#   #   En[,group] = 0
+#   # }
+#   # 
+#   # return(En>0)
+# }
 
 #Shuffle rows of dat (observation data), used for null hypothesis
 GenNull <- function(dat) {
