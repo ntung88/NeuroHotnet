@@ -1,0 +1,48 @@
+setwd('~/Desktop/NeuroHotNetHD')
+# source('heat.R')
+# source('FDR.R')
+library('R.matlab')
+type = 'Time Courses/'
+aggfdr = matrix(integer(length = 120^2),nrow=120)
+subjects = list.files(path = type,pattern = '^tmmatrx')
+
+threshold = 0.09
+
+gamma = 30
+dat.dir = "~/Desktop/2020NeuroHotnet/Onsets"
+ons.file.dir = dir(dat.dir, pattern = "*", full.names = TRUE)
+
+tcs = list()
+for(i in 1:length(subjects)) {
+  load(sprintf('%s%s',type,subjects[i]))
+  rownames(tm.matrx) <- NULL
+  tcs[[i]] = tm.matrx
+}
+
+### Load the structural weights
+mat = readMat('whole_brain_AAL2.mat')$connectivity
+
+Linv = heat(mat,gamma,0,weighted=TRUE, trans = TRUE)
+# sink('SimpleResults.txt')
+res = FDR(tcs,Linv,0.05,10,1000,threshold,trace = TRUE)
+print(res$groups)
+print(res$pvals)
+# sink()
+# weighted, normed, no trans
+# deltas = rev(seq(from=1e-5,to=1.2e-4,length.out=15))
+# deltas = rev(seq(from=8.1e-5,to=8.9e-5,length.out=10))
+# unweighted,  normed, no trans
+# deltas = rev(seq(from=2e-4,to=9e-4,length.out=15))
+# unweighted,  no normed, no trans
+# deltas = rev(seq(from=2e-4,to=5e-4,length.out=15))
+# deltas = rev(seq(from=1e-5,to=1e-4,length.out=15))
+# normed
+# deltas = seq(from=3e-2,to=1e-1,length.out=15)
+# for(d in deltas){
+#   res = FDR(tcs,Linv,0.05,10,1000,d,trace = TRUE)
+#   if(length(res$groups)>0) {
+#     print('FOUND')
+#     print(res$groups)
+#     print(res$pvals)
+#   }
+# }
