@@ -12,7 +12,10 @@ library('igraph')
 #numtrials: number of trials for monte carlo
 #pr: should a paired (vs unpaired) t.test be run when testing components
 #trace: should it print results for each threshold?
-FDR <- function(dats,struct,alpha,k,numtrials,delta,pr=FALSE,trace=FALSE) {
+#mu: if non-null, the constant mean under null hypothesis that the mean of dats 
+#for each component is t-tested against
+#dats2: if non-null AND MU IS NULL, the second set of data for two sample t-test
+FDR <- function(dats,struct,alpha,k,numtrials,delta,pr=FALSE,trace=FALSE,mu=NULL,dats2=NULL) {
   
   #Works for when dats isn't a list too
   if(!is.list(dats)) {dats = list(dats)}
@@ -72,12 +75,24 @@ FDR <- function(dats,struct,alpha,k,numtrials,delta,pr=FALSE,trace=FALSE) {
   if(length(grs) > 0) {
     for (i in 1:length(grs)) {
       data = c()
-      for(dat in dats) {
-        sampcor = clean(cor(t(dat)))
+      data2 = c()
+      for(j in 1:n) {
+        sampcor = clean(cor(t(dats[[j]])))
         slice = sampcor[grs[[i]],grs[[i]]]
         data = c(data, mean(slice,na.rm=TRUE))
+        if(!is.null(dats2)) {
+          sampcor2 = clean(cor(t(dats2[[j]])))
+          slice2 = sampcor2[grs[[i]],grs[[i]]]
+          data2 = c(data2, mean(slice2,na.rm=TRUE))
+        }
       }
-      res = t.test(data,aggcor,paired = pr)
+      if(!is.null(mu)) {
+        res = t.test(data,mu)
+      } else if(!is.null(dats2)) {
+        res = t.test(data,data2,paired = pr)
+      } else {
+        res = t.test(data,aggcor,paired = pr)
+      }
       aggres[i] = res$p.value
     }
   }
@@ -94,7 +109,10 @@ FDR <- function(dats,struct,alpha,k,numtrials,delta,pr=FALSE,trace=FALSE) {
 #k: max component size tested
 #tuning: nu parameter in paper, controls overall sparsity
 #pr: should a paired (vs unpaired) t.test be run when testing components
-SiGGM <- function(dats,struct,alpha,k,tuning,pr=FALSE) {
+#mu: if non-null, the constant mean under null hypothesis that the mean of dats 
+#for each component is t-tested against
+#dats2: if non-null AND MU IS NULL, the second set of data for two sample t-test
+SiGGM <- function(dats,struct,alpha,k,tuning,pr=FALSE,mu=NULL,dats2=NULL) {
   
   #Works for when dats isn't a list too
   if(!is.list(dats)) {dats = list(dats)}
@@ -127,12 +145,24 @@ SiGGM <- function(dats,struct,alpha,k,tuning,pr=FALSE) {
   if(length(grs) > 0) {
     for (i in 1:length(grs)) {
       data = c()
-      for(dat in dats) {
-        sampcor = clean(cor(t(dat)))
+      data2 = c()
+      for(j in 1:n) {
+        sampcor = clean(cor(t(dats[[j]])))
         slice = sampcor[grs[[i]],grs[[i]]]
-        data = c(data, mean(slice,na.rm = TRUE))
+        data = c(data, mean(slice,na.rm=TRUE))
+        if(!is.null(dats2)) {
+          sampcor2 = clean(cor(t(dats2[[j]])))
+          slice2 = sampcor2[grs[[i]],grs[[i]]]
+          data2 = c(data2, mean(slice2,na.rm=TRUE))
+        }
       }
-      res = t.test(data,aggcor,paired = pr)
+      if(!is.null(mu)) {
+        res = t.test(data,mu)
+      } else if(!is.null(dats2)) {
+        res = t.test(data,data2,paired = pr)
+      } else {
+        res = t.test(data,aggcor,paired = pr)
+      }
       aggres[i] = res$p.value
     }
   }
