@@ -7,7 +7,8 @@ type = 'Time Courses/'
 subjects = list.files(path = type,pattern = '^tmmatrx')
 # subjects = subjects[1:2]
 
-threshold = 0.09
+# threshold = 0.1
+threshold = 0.068
 
 gamma = 30
 dat.dir = "~/Desktop/2020NeuroHotnet/Onsets"
@@ -36,9 +37,10 @@ mat = readMat('whole_brain_AAL2.mat')$connectivity
 
 Linv = heat(mat,gamma,0,weighted=TRUE, trans = TRUE)
 # sink('SimpleResults.txt')
-res = FDR(ton,Linv,0.05,10,1000,threshold,trace = TRUE,dats2=lf)
+res = FDR(tcs,Linv,0.05,10,1000,threshold,trace = TRUE)
 print(res$groups)
 print(res$pvals)
+# print(num2name(res$groups))
 # sink()
 # weighted, normed, no trans
 # deltas = rev(seq(from=1e-5,to=1.2e-4,length.out=15))

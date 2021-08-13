@@ -41,7 +41,7 @@ mat = readMat('whole_brain_AAL2.mat')$connectivity
 
 Linv = heat(mat,gamma,0,weighted=TRUE, trans = TRUE)
 # sink('HigginsResults.txt')
-res = SiGGM(tcs,Linv,0.05,10,nu,dats2 = rh)
+res = SiGGM(tcs,Linv,nu,dats2 = rh)
 print(res$groups)
 print(res$pvals)
 # sink()

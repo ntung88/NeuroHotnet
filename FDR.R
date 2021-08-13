@@ -15,7 +15,7 @@ library('igraph')
 #mu: if non-null, the constant mean under null hypothesis that the mean of dats 
 #for each component is t-tested against
 #dats2: if non-null AND MU IS NULL, the second set of data for two sample t-test
-FDR <- function(dats,struct,alpha,k,numtrials,delta,pr=FALSE,trace=FALSE,mu=NULL,dats2=NULL) {
+FDR <- function(dats,struct,alpha,k,numtrials,delta,pr=FALSE,trace=FALSE,mu=NULL,dats2=NULL,beta=NULL) {
   
   #Works for when dats isn't a list too
   if(!is.list(dats)) {dats = list(dats)}
@@ -40,10 +40,21 @@ FDR <- function(dats,struct,alpha,k,numtrials,delta,pr=FALSE,trace=FALSE,mu=NULL
   counts = mc$counts
   pvals = mc$pvals
   
+  # Construct betas to decrease with component size as specified in hotnet
+  if(!is.null(beta)) {
+    betas = integer(k)
+    sofar = 0
+    for(i in k:2) {
+      betas[i] = beta/2^(k-i+1)
+      sofar = sofar + betas[i]
+    }
+    betas[1] = beta - sofar
+  }
+  
   #Look for smallest S that is statistically significant and satisfies FDR condition
   s = 1
   while(s <= k) {
-    if (pvals[s] <= alpha/k) {
+    if (pvals[s] <= alpha/k && (is.null(beta) || samp[s] >= counts[s]/betas[s])) {
       break
     }
     s = s + 1
@@ -112,7 +123,7 @@ FDR <- function(dats,struct,alpha,k,numtrials,delta,pr=FALSE,trace=FALSE,mu=NULL
 #mu: if non-null, the constant mean under null hypothesis that the mean of dats 
 #for each component is t-tested against
 #dats2: if non-null AND MU IS NULL, the second set of data for two sample t-test
-SiGGM <- function(dats,struct,alpha,k,tuning,pr=FALSE,mu=NULL,dats2=NULL) {
+SiGGM <- function(dats,struct,tuning,pr=FALSE,mu=NULL,dats2=NULL) {
   
   #Works for when dats isn't a list too
   if(!is.list(dats)) {dats = list(dats)}
