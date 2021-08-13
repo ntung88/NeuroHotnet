@@ -10,6 +10,7 @@ subjects = list.files(path = type,pattern = '^tmmatrx')
 
 # nu for all task data
 nu = 0.011
+# nu = 0.007
 
 #nu for task-separated data
 # nu = 0.09
@@ -41,7 +42,7 @@ mat = readMat('whole_brain_AAL2.mat')$connectivity
 
 Linv = heat(mat,gamma,0,weighted=TRUE, trans = TRUE)
 # sink('HigginsResults.txt')
-res = SiGGM(tcs,Linv,nu,dats2 = rh)
+res = SiGGM(tcs,Linv,nu)
 print(res$groups)
 print(res$pvals)
 # sink()

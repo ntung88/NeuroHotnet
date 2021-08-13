@@ -123,7 +123,7 @@ FDR <- function(dats,struct,alpha,k,numtrials,delta,pr=FALSE,trace=FALSE,mu=NULL
 #mu: if non-null, the constant mean under null hypothesis that the mean of dats 
 #for each component is t-tested against
 #dats2: if non-null AND MU IS NULL, the second set of data for two sample t-test
-SiGGM <- function(dats,struct,tuning,pr=FALSE,mu=NULL,dats2=NULL) {
+SiGGM <- function(dats,struct,tuning,pr=FALSE,mu=NULL,dats2=NULL,naive=FALSE) {
   
   #Works for when dats isn't a list too
   if(!is.list(dats)) {dats = list(dats)}
@@ -143,7 +143,7 @@ SiGGM <- function(dats,struct,tuning,pr=FALSE,mu=NULL,dats2=NULL) {
   }
   
   
-  hig = SCFC(matrix(integer(length = p*ncol(dats[[1]])),nrow=p),struct,cov_init=aggcov,c0=tuning)
+  hig = SCFC(matrix(integer(length = p*ncol(dats[[1]])),nrow=p),struct,cov_init=aggcov,c0=tuning,etaInd = !naive)
   En = hig$Covariance
   
   #extract connected components
