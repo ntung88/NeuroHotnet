@@ -3,6 +3,7 @@ setwd('~/Desktop/NeuroHotNetHD')
 # source('FDR.R')
 library('R.matlab')
 source('tasks.R')
+# source('naive.R')
 type = 'Time Courses/'
 subjects = list.files(path = type,pattern = '^tmmatrx')
 # subjects = subjects[1:2]
@@ -29,7 +30,8 @@ for(i in 1:length(subjects)) {
   lf[[i]] = tasked$LFoot
   ton[[i]] = tasked$Tongue
 }
-
-res = naive(tcs,threshold)
+#rh
+threshold = 1e-6
+res = naive(lh,threshold,dats2 = ton)
 print(res$groups)
-# print(res$pvals)
+print(min(res$pvals))

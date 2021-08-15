@@ -1,3 +1,5 @@
+
+
 naive <- function(dats,delta,pr=FALSE,mu=NULL,dats2=NULL) {
   #collect average correlation for each component across all subjects
   #and test for pvalue
@@ -17,7 +19,7 @@ naive <- function(dats,delta,pr=FALSE,mu=NULL,dats2=NULL) {
     }
   }
   
-  aggres = matrix(0,p,p)
+  aggres = matrix(1,p,p)
   for (i in 1:p) {
     for (j in i:p) {
       if(i == j) {next}
