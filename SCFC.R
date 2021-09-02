@@ -115,9 +115,9 @@ SCFC<- function(y,P,siglam=10,sigmu=5,maxits=500,method="glasso",etaInd=1,mu_ini
   diag(alpha)=rep(-Inf,p)
   
   #Initialize eta
-  if(etaInd==1){
+  if(etaInd){
     eta=stats::runif(1,min = .1,max = 5)
-  }else if(etaInd==0){
+  }else {
     eta=0
   }
   
@@ -168,7 +168,7 @@ SCFC<- function(y,P,siglam=10,sigmu=5,maxits=500,method="glasso",etaInd=1,mu_ini
       b=b0+(1/siglam)*(sum(AP[upper.tri(AP)])-muold%*%P[upper.tri(P)]);
       c=-(a0-1);
       eta=(-b+sqrt(b^2-4*a*c))/(2*a)
-    }else if (!etaInd){
+    }else {
       eta=0
     }
     ################################
@@ -263,7 +263,6 @@ SCFC<- function(y,P,siglam=10,sigmu=5,maxits=500,method="glasso",etaInd=1,mu_ini
         Estimates$Time=endtime[!is.na(endtime)]
         Estimates$Flag=0;
         Estimates$BIC=-determinant(OmegaN,logarithm = TRUE)$modulus+sum(s*OmegaN)+(log(T)/T)*sum(OmegaN[upper.tri(OmegaN)]!=0)
-        
         break
       }
       else{

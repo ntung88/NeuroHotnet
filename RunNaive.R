@@ -8,7 +8,7 @@ type = 'Time Courses/'
 subjects = list.files(path = type,pattern = '^tmmatrx')
 # subjects = subjects[1:2]
 
-threshold = 1e-180
+threshold = 1e-195
 
 dat.dir = "~/Desktop/2020NeuroHotnet/Onsets"
 ons.file.dir = dir(dat.dir, pattern = "*", full.names = TRUE)
@@ -31,7 +31,7 @@ for(i in 1:length(subjects)) {
   ton[[i]] = tasked$Tongue
 }
 #rh
-threshold = 1e-6
-res = naive(lh,threshold,dats2 = ton)
+# threshold = 1e-6
+res = naive(tcs,threshold)
 print(res$groups)
-print(min(res$pvals))
+# print(res$pvals)
