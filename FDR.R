@@ -15,7 +15,7 @@ library('igraph')
 #mu: if non-null, the constant mean under null hypothesis that the mean of dats 
 #for each component is t-tested against
 #dats2: if non-null AND MU IS NULL, the second set of data for two sample t-test
-FDR <- function(dats,struct,alpha,k,numtrials,delta,pr=FALSE,trace=FALSE,mu=NULL,dats2=NULL,beta=NULL) {
+FDR <- function(dats,struct,alpha,k,numtrials,delta,pr=FALSE,trace=FALSE,mu=0,dats2=NULL,beta=NULL) {
   
   #Works for when dats isn't a list too
   if(!is.list(dats)) {dats = list(dats)}
@@ -25,10 +25,10 @@ FDR <- function(dats,struct,alpha,k,numtrials,delta,pr=FALSE,trace=FALSE,mu=NULL
   #Average results for each matrix in dats
   #an collect average across all edges for testing of components later
   model = matrix(integer(length = p^2),nrow=p)
-  aggcor = c()
+  # aggcor = c()
   for(i in 1:n) {
     loccor = clean(cor(t(dats[[i]])))
-    aggcor = c(aggcor, mean(loccor,na.rm=TRUE))
+    # aggcor = c(aggcor, mean(loccor,na.rm=TRUE))
     diag(loccor) = 0
     model = model + loccor/n
   }
@@ -89,20 +89,18 @@ FDR <- function(dats,struct,alpha,k,numtrials,delta,pr=FALSE,trace=FALSE,mu=NULL
       data2 = c()
       for(j in 1:n) {
         sampcor = clean(cor(t(dats[[j]])))
-        slice = sampcor[grs[[i]],grs[[i]]]
+        slice = abs(fisherz(sampcor[grs[[i]],grs[[i]]]))
         data = c(data, mean(slice,na.rm=TRUE))
         if(!is.null(dats2)) {
           sampcor2 = clean(cor(t(dats2[[j]])))
-          slice2 = sampcor2[grs[[i]],grs[[i]]]
+          slice2 = abs(fisherz(sampcor2[grs[[i]],grs[[i]]]))
           data2 = c(data2, mean(slice2,na.rm=TRUE))
         }
       }
-      if(!is.null(mu)) {
-        res = t.test(data,mu)
-      } else if(!is.null(dats2)) {
+      if(!is.null(dats2)) {
         res = t.test(data,data2,paired = pr)
       } else {
-        res = t.test(data,aggcor,paired = pr)
+        res = t.test(data,mu=mu,paired = pr)
       }
       aggres[i] = res$p.value
     }
@@ -123,7 +121,7 @@ FDR <- function(dats,struct,alpha,k,numtrials,delta,pr=FALSE,trace=FALSE,mu=NULL
 #mu: if non-null, the constant mean under null hypothesis that the mean of dats 
 #for each component is t-tested against
 #dats2: if non-null AND MU IS NULL, the second set of data for two sample t-test
-SiGGM <- function(dats,struct,tuning,pr=FALSE,mu=NULL,dats2=NULL,naive=FALSE) {
+SiGGM <- function(dats,struct,tuning,pr=FALSE,mu=0,dats2=NULL,naive=FALSE) {
   
   #Works for when dats isn't a list too
   if(!is.list(dats)) {dats = list(dats)}
@@ -133,13 +131,13 @@ SiGGM <- function(dats,struct,tuning,pr=FALSE,mu=NULL,dats2=NULL,naive=FALSE) {
   #Average covariance for each matrix in dats
   #an collect average across all edges for testing of components later
   aggcov = matrix(integer(length = p^2),nrow=p)
-  aggcor = c()
+  # aggcor = c()
   for(i in 1:n) {
     y = t(MyScale(dats[[i]]))
     loccov = (1/nrow(y))*t(y)%*%y
     aggcov = aggcov + loccov/n
     loccor = clean(cor(t(dats[[i]])))
-    aggcor = c(aggcor, mean(loccor,na.rm = TRUE))
+    # aggcor = c(aggcor, mean(loccor,na.rm = TRUE))
   }
   
   
@@ -159,20 +157,18 @@ SiGGM <- function(dats,struct,tuning,pr=FALSE,mu=NULL,dats2=NULL,naive=FALSE) {
       data2 = c()
       for(j in 1:n) {
         sampcor = clean(cor(t(dats[[j]])))
-        slice = sampcor[grs[[i]],grs[[i]]]
+        slice = abs(fisherz(sampcor[grs[[i]],grs[[i]]]))
         data = c(data, mean(slice,na.rm=TRUE))
         if(!is.null(dats2)) {
           sampcor2 = clean(cor(t(dats2[[j]])))
-          slice2 = sampcor2[grs[[i]],grs[[i]]]
+          slice2 = abs(fisherz(sampcor2[grs[[i]],grs[[i]]]))
           data2 = c(data2, mean(slice2,na.rm=TRUE))
         }
       }
-      if(!is.null(mu)) {
-        res = t.test(data,mu)
-      } else if(!is.null(dats2)) {
+      if(!is.null(dats2)) {
         res = t.test(data,data2,paired = pr)
       } else {
-        res = t.test(data,aggcor,paired = pr)
+        res = t.test(data,mu=mu,paired = pr)
       }
       aggres[i] = res$p.value
     }

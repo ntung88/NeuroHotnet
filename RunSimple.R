@@ -37,7 +37,7 @@ mat = readMat('whole_brain_AAL2.mat')$connectivity
 
 Linv = heat(mat,gamma,0,weighted=TRUE, trans = TRUE)
 # sink('SimpleResults.txt')
-res = FDR(tcs,Linv,0.05,10,1000,threshold,trace = TRUE)
+res = FDR(tcs,Linv,0.05,10,1000,threshold,trace = TRUE,mu=1.5)
 print(res$groups)
 print(res$pvals)
 # print(num2name(res$groups))
