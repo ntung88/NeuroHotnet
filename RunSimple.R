@@ -7,7 +7,8 @@ type = 'Time Courses/'
 subjects = list.files(path = type,pattern = '^tmmatrx')
 # subjects = subjects[1:2]
 
-threshold = 0.095
+# threshold = 0.095
+threshold = 0.25
 # threshold = 0.068
 
 gamma = 30
@@ -37,9 +38,10 @@ mat = readMat('whole_brain_AAL2.mat')$connectivity
 
 Linv = heat(mat,gamma,0,weighted=TRUE, trans = TRUE)
 # sink('SimpleResults.txt')
-res = FDR(tcs,Linv,0.05,10,1000,threshold,trace = TRUE,mu=1.5)
-print(res$groups)
-print(res$pvals)
+fdr = FDR(rh,Linv,0.05,10,1000,threshold,dats2=lh,trace=TRUE,pwr = 2)
+# print()
+print(fdr$groups)
+print(fdr$pvals)
 # print(num2name(res$groups))
 # sink()
 # weighted, normed, no trans

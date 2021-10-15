@@ -1,4 +1,7 @@
 library('igraph')
+source('MyScale.R')
+source('SCFC.R')
+library('psych')
 
 #Library of functions for implementing the HotNet FDR algorithm
 
@@ -15,7 +18,7 @@ library('igraph')
 #mu: if non-null, the constant mean under null hypothesis that the mean of dats 
 #for each component is t-tested against
 #dats2: if non-null AND MU IS NULL, the second set of data for two sample t-test
-FDR <- function(dats,struct,alpha,k,numtrials,delta,pr=FALSE,trace=FALSE,mu=0,dats2=NULL,beta=NULL) {
+FDR <- function(dats,struct,alpha,k,numtrials,delta,pr=FALSE,trace=FALSE,mu=0,dats2=NULL,beta=NULL,pwr=1) {
   
   #Works for when dats isn't a list too
   if(!is.list(dats)) {dats = list(dats)}
@@ -33,6 +36,7 @@ FDR <- function(dats,struct,alpha,k,numtrials,delta,pr=FALSE,trace=FALSE,mu=0,da
     model = model + loccor/n
   }
  
+  model = exp(model)
   #Run mc for pvals and expected counts
   En = H(model,struct,delta)
   samp = SubCounts(En)
@@ -100,14 +104,16 @@ FDR <- function(dats,struct,alpha,k,numtrials,delta,pr=FALSE,trace=FALSE,mu=0,da
       if(!is.null(dats2)) {
         res = t.test(data,data2,paired = pr)
       } else {
-        res = t.test(data,mu=mu,paired = pr)
+        res = t.test(data,mu=fisherz(mu),paired = pr,alternative = 'greater')
       }
       aggres[i] = res$p.value
     }
   }
   
   return(list('groups'=grs,
-              'pvals'=formatC(aggres,format='e',digits=2)))
+              'pvals'=formatC(aggres,format='e',digits=2),
+              'mat' = En,
+              's' = s))
 }
 
 #Runs the algorithm with Higgins, returns list where 'groups' is a list of vectors where each vector is a connected component 
@@ -168,14 +174,37 @@ SiGGM <- function(dats,struct,tuning,pr=FALSE,mu=0,dats2=NULL,naive=FALSE) {
       if(!is.null(dats2)) {
         res = t.test(data,data2,paired = pr)
       } else {
-        res = t.test(data,mu=mu,paired = pr)
+        res = t.test(data,mu=fisherz(mu),paired = pr,alternative = 'greater')
       }
       aggres[i] = res$p.value
     }
   }
   
   return(list('groups'=grs,
-              'pvals'=formatC(aggres,format='e',digits=2)))
+              'pvals'=formatC(aggres,format='e',digits=2),
+              'mat' = En))
+}
+
+zero.out <- function(mat,s) {
+  bad = Filter(function(x) length(x) <= s, SubNetworks(mat))
+  for (net in bad) {
+    mat[net,] <- 0
+    mat[,net] <- 0
+  }
+  return(mat)
+}
+
+densities <- function(mat) {
+  grs = SubNetworks(mat)
+  diag(mat) <- 0
+  n = length(grs)
+  dense = integer(n)
+  for (i in 1:n) {
+    gr = grs[[i]]
+    s = length(gr)
+    dense[i] = sum(mat[gr,gr])/2/choose(s,2)
+  }
+  return(dense / (sum(mat)/2/choose(nrow(mat),2)))
 }
 
 #Utility function to turn Nan into 0 and then make diagonal Nan (so diagonal can be

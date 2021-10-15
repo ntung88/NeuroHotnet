@@ -3,12 +3,14 @@ setwd('~/Desktop/NeuroHotNetHD')
 # source('FDR.R')
 library('R.matlab')
 source('tasks.R')
+library('psych')
 # source('naive.R')
 type = 'Time Courses/'
 subjects = list.files(path = type,pattern = '^tmmatrx')
 # subjects = subjects[1:2]
 
-threshold = 1e-195
+# threshold = 1e-80
+# threshold = 1e-43
 
 dat.dir = "~/Desktop/2020NeuroHotnet/Onsets"
 ons.file.dir = dir(dat.dir, pattern = "*", full.names = TRUE)
@@ -31,7 +33,7 @@ for(i in 1:length(subjects)) {
   ton[[i]] = tasked$Tongue
 }
 #rh
-# threshold = 1e-6
-res = naive(tcs,threshold)
-print(res$groups)
-# print(res$pvals)
+threshold = 5e-6
+nv = naive(rh,threshold,dats2=lh)
+print(nv$groups)
+# print(nv$pvals)
