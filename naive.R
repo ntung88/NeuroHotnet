@@ -10,10 +10,10 @@ naive <- function(dats,delta,pr=FALSE,mu=NULL,dats2=NULL) {
   arr = array(0, c(p,p,n))
   arr2 = array(0, c(p,p,n))
   for(i in 1:n) {
-    loccor = clean(cor(t(dats[[i]])))
+    loccor = fisherz(clean(cor(t(dats[[i]]))))
     arr[,,i] = loccor
     if (!is.null(dats2)) {
-      arr2[,,i] = clean(cor(t(dats2[[i]])))
+      arr2[,,i] = fisherz(clean(cor(t(dats2[[i]]))))
     } else {
       aggcor = c(aggcor, mean(loccor,na.rm=TRUE))
     }
@@ -25,7 +25,7 @@ naive <- function(dats,delta,pr=FALSE,mu=NULL,dats2=NULL) {
       if(i == j) {next}
       data = arr[i,j,]
       if(!is.null(mu)) {
-        res = t.test(data,mu)
+        res = t.test(data,mu=fisherz(mu),alternative = 'greater')
       } else if(!is.null(dats2)) {
         res = t.test(data,arr2[i,j,],paired=pr)
       } else {
@@ -36,5 +36,6 @@ naive <- function(dats,delta,pr=FALSE,mu=NULL,dats2=NULL) {
     }
   }
   
-  return(list('groups'=Filter(function(x) length(x) > 1, SubNetworks(aggres<delta)),'pvals' = aggres))
+  return(list('groups'=Filter(function(x) length(x) > 1, SubNetworks(aggres<delta)),'pvals' = aggres,
+              'mat' = rowMeans(arr,dims = 2),'meancor'=rowMeans(arr,dims=2)))
 }
