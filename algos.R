@@ -20,7 +20,7 @@ library('psych')
 #for each component is t-tested against
 #dats2: if non-null AND MU IS NULL, the second set of data for two sample t-test
 #beta: if non-null the FDR controlling condition is turned on when testing for s^*
-NeurHot <- function(dats,struct,alpha,k,numtrials,delta,pr=FALSE,trace=FALSE,mu=0,dats2=NULL,beta=NULL) {
+NeurHot <- function(dats,struct,alpha,k,numtrials,compsize,pr=FALSE,trace=FALSE,mu=0,dats2=NULL,beta=NULL) {
   
   #Works for when dats isn't a list too
   if(!is.list(dats)) {dats = list(dats)}
@@ -35,6 +35,69 @@ NeurHot <- function(dats,struct,alpha,k,numtrials,delta,pr=FALSE,trace=FALSE,mu=
     diag(loccor) = 0
     model = model + loccor/n
   }
+  
+  model = model/mean(model)
+  struct = struct/mean(struct)
+
+  #find num of edges
+  # En = matrix(sample(model),nrow=nrow(model)) * struct
+  # runs = 100000
+  # compsize = 7
+  # grid = 18:19
+  # numvals = length(grid)
+  # pvals = integer(numvals)
+  # for(i in 1:numvals) {
+  #   for(j in 1:runs) {
+  #     nullvec = integer(7140)
+  #     nullvec[1:grid[i]] = 1
+  #     nullvec = sample(nullvec)
+  #     nullModel = matrix(integer(120^2),nrow=120,ncol=120)
+  #     nullModel[lower.tri(nullModel)] = nullvec
+  #     nullModel[upper.tri(nullModel)] = t(nullModel)[upper.tri(nullModel)]
+  #     subs = SubCounts(nullModel)
+  #     pvals[i] = pvals[i] + (subs[compsize] > 0)
+  #   }
+  # }
+  # pvals = pvals/runs
+  
+  # runs = 5000
+  # sizes = integer(runs)
+  # for(i in 1:runs) {
+  #   nullModel = matrix(sample(model),nrow=nrow(model))
+  #   nullH = H(nullModel,struct,0.095)
+  #   diag(nullH) <- 0
+  #   g  <- graph.adjacency(nullH>0,mode = 'undirected')
+  #   sizes[i] = gsize(g)
+  # }
+  
+  #Choose delta
+  runs = numtrials
+  range = integer(2)
+  for(i in 1:runs){
+    En = matrix(sample(model),nrow=nrow(model)) * struct
+    percentiles = quantile(En, probs = seq(0, 1, 0.0005))
+    range = range + c(percentiles[1994],percentiles[2000])
+  }
+  range = range/runs
+  print(range)
+  numvals = 15
+  grid = seq(from=range[1], to=range[2], length.out=numvals)
+  pvals = integer(numvals)
+  for(i in 1:runs) {
+    nullModel = matrix(sample(model),nrow=nrow(model))
+    for(j in 1:numvals) {
+      nullH = H(nullModel,struct,grid[j])
+      subs = SubCounts(nullH)
+      pvals[j] = pvals[j] + (subs[compsize] > 0)
+    }
+  }
+  pvals = pvals/runs
+  ind = head(which(pvals <= alpha/numvals),1)
+  if(!(ind > 0)) {
+    stop('delta grid too narrow, none satisfied pvalue')
+  }
+  delta = grid[ind]
+  
   
   #Run mc for pvals and expected counts
   En = H(model,struct,delta)
@@ -55,7 +118,7 @@ NeurHot <- function(dats,struct,alpha,k,numtrials,delta,pr=FALSE,trace=FALSE,mu=
   }
   
   #Look for smallest S that is statistically significant and satisfies FDR condition
-  s = 1
+  s = 2
   while(s <= k) {
     if (pvals[s] <= alpha/k && (is.null(beta) || samp[s] >= counts[s]/betas[s])) {
       break
@@ -239,7 +302,7 @@ H <- function(S,GI,delta) {
 
 #Run monte carlo simulation for pvalues and counts of number of connected components of varying sizes
 #Returns list of vectors 'counts' and 'pvals'. The value at index [i] of these vectors is the count/pval for components of size i
-#S: Observation data
+#S: Correlation matrix from observation data
 #GI: structural matrix/influence graph
 #n: number of mc trials to run
 #delta: threshold to get reduced influence graph
@@ -273,6 +336,7 @@ SubCounts <- function(m,pretty=FALSE) {
   for(g in grps) {
     counts[1:length(g)] = counts[1:length(g)] + 1
   }
+  counts[1] = Inf
   if(pretty) {
     return(data.frame(
       s = 1:30,

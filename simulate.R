@@ -17,7 +17,7 @@ simulate <- function(subj,Linv,exact=FALSE,noisemean=0,noisevar=NULL) {
   test_cor = round(test_cor,10)
   # stopifnot(is.positive.definite(test_cor))
   test_cov = nearPD(stds %*% t(stds) * test_cor)$mat
-  dat = t(mvrnorm(n=ncol(tc),mu=colMeans(t(tc)),Sigma=test_cov,empirical = exact))
+  dat = t(mvrnorm(n=ncol(tc),mu=colMeans(t(tc)),Sigma=test_cov,empirical=exact))
   if (!is.null(noisevar)) {
     noise = t(mvrnorm(n=ncol(tc),mu=rep(noisemean,nrow(tc)),Sigma=diag(noisevar,nrow=nrow(tc))))
     dat <- dat + noise

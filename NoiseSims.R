@@ -1,21 +1,22 @@
-setwd('~/Desktop/NeuroHotnetHD/')
 library('R.matlab')
 source('heat.R')
 source('num2name.R')
-source('simulate.R')
-source('FDR.R')
+# source('simulate.R')
+# source('algos.R')
 source('naive.R')
 
 subj = "tmmatrx_102513.rda"
 mat = readMat('whole_brain_AAL2.mat')$connectivity
 gamma = 30
 n=308
-m=2
+m=200
 
 #### Simulation 1, Nathan's approach, using the true time course mean/sd and true structural
-Linv = heat(mat,gamma,0,weighted=TRUE, trans = TRUE)
-En = H(Linv,matrix(1,nrow=120,ncol=120),0.13)
-En = zero.out(En,3)
+# Linv = heat(mat,gamma,0,weighted=TRUE, trans = TRUE)
+# En = H(Linv,matrix(1,nrow=120,ncol=120),0.13)
+# En = H(Linv,matrix(1,nrow=120,ncol=120),0)
+En = hypo
+En = zero.out(En,8)
 real = SubNetworks(En)
 # linvthresh = 0.17
 
@@ -40,15 +41,17 @@ for(j in 1:m) {
   tcs = list()
   for(i in 1:n) {
     tcs[[i]] = simulate(subj, En,noisevar = 35000)
+    # tcs[[i]] = simulate(subj, En)
   }
   
-  fdr = FDR(tcs,En,0.1,5,1000,0.00039)
-  # nai = naive(tcs,4e-3)
-  res = SiGGM(tcs,En,0.000291)
+  # Linv = heat(En,gamma,0,weighted=TRUE, trans = TRUE)
+  # fdr = NeurHot(tcs,Linv,0.1,10,1000,14,trace = TRUE)
+  nai = naive(tcs,1e-3)
+  # res = SiGGM(tcs,En,0.000291)
   
-  neurrates = c(neurrates,recovery_rate(fdr$groups,real))
-  higrates = c(higrates,recovery_rate(res$groups,real))
-  # naiverates = c(naiverates,recovery_rate(nai$groups,real))
+  # neurrates = c(neurrates,recovery_rate(fdr$groups,real))
+  # higrates = c(higrates,recovery_rate(res$groups,real))
+  naiverates = c(naiverates,recovery_rate(nai$groups,real))
 }
 
 neurrate = mean(neurrates)
