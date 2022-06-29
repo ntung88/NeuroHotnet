@@ -20,7 +20,7 @@ library('psych')
 #for each component is t-tested against
 #dats2: if non-null AND MU IS NULL, the second set of data for two sample t-test
 #beta: if non-null the FDR controlling condition is turned on when testing for s^*
-NeurHot <- function(dats,struct,alpha,k,numtrials,compsize,pr=FALSE,trace=FALSE,mu=0,dats2=NULL,beta=NULL) {
+NeurHot <- function(dats,struct,alpha,k,numtrials) {
   
   #Works for when dats isn't a list too
   if(!is.list(dats)) {dats = list(dats)}
@@ -36,41 +36,10 @@ NeurHot <- function(dats,struct,alpha,k,numtrials,compsize,pr=FALSE,trace=FALSE,
     model = model + loccor/n
   }
   
-  model = model/mean(model)
-  struct = struct/mean(struct)
-
-  #find num of edges
-  # En = matrix(sample(model),nrow=nrow(model)) * struct
-  # runs = 100000
-  # compsize = 7
-  # grid = 18:19
-  # numvals = length(grid)
-  # pvals = integer(numvals)
-  # for(i in 1:numvals) {
-  #   for(j in 1:runs) {
-  #     nullvec = integer(7140)
-  #     nullvec[1:grid[i]] = 1
-  #     nullvec = sample(nullvec)
-  #     nullModel = matrix(integer(120^2),nrow=120,ncol=120)
-  #     nullModel[lower.tri(nullModel)] = nullvec
-  #     nullModel[upper.tri(nullModel)] = t(nullModel)[upper.tri(nullModel)]
-  #     subs = SubCounts(nullModel)
-  #     pvals[i] = pvals[i] + (subs[compsize] > 0)
-  #   }
-  # }
-  # pvals = pvals/runs
+  # model = model/mean(model)
+  # struct = struct/mean(struct)
   
-  # runs = 5000
-  # sizes = integer(runs)
-  # for(i in 1:runs) {
-  #   nullModel = matrix(sample(model),nrow=nrow(model))
-  #   nullH = H(nullModel,struct,0.095)
-  #   diag(nullH) <- 0
-  #   g  <- graph.adjacency(nullH>0,mode = 'undirected')
-  #   sizes[i] = gsize(g)
-  # }
-  
-  #Choose delta
+  #Make grid of deltas to test
   runs = numtrials
   range = integer(2)
   for(i in 1:runs){
@@ -78,104 +47,84 @@ NeurHot <- function(dats,struct,alpha,k,numtrials,compsize,pr=FALSE,trace=FALSE,
     percentiles = quantile(En, probs = seq(0, 1, 0.0005))
     range = range + c(percentiles[1994],percentiles[2000])
   }
+  # for real data use percentiles[1997] to [2000] and 10 numvals if you want to cut out first local min ;)
   range = range/runs
   print(range)
-  numvals = 15
+  numvals = 20
   grid = seq(from=range[1], to=range[2], length.out=numvals)
-  pvals = integer(numvals)
-  for(i in 1:runs) {
-    nullModel = matrix(sample(model),nrow=nrow(model))
-    for(j in 1:numvals) {
-      nullH = H(nullModel,struct,grid[j])
-      subs = SubCounts(nullH)
-      pvals[j] = pvals[j] + (subs[compsize] > 0)
-    }
-  }
-  pvals = pvals/runs
-  ind = head(which(pvals <= alpha/numvals),1)
-  if(!(ind > 0)) {
-    stop('delta grid too narrow, none satisfied pvalue')
-  }
-  delta = grid[ind]
-  
   
   #Run mc for pvals and expected counts
-  En = H(model,struct,delta)
-  samp = SubCounts(En)
-  mc = MC(model,struct,numtrials,delta,pthresh=samp)
+  Ens = lapply(grid,function(z) H(model,struct,z))
+  samps = lapply(Ens,function(z) SubCounts(z))
+  mc = MC(model,struct,numtrials,grid,pthreshes=samps)
   counts = mc$counts
   pvals = mc$pvals
   
-  # Construct betas to decrease with component size as specified in hotnet
-  if(!is.null(beta)) {
-    betas = integer(k)
-    sofar = 0
-    for(i in k:2) {
-      betas[i] = beta/2^(k-i+1)
-      sofar = sofar + betas[i]
-    }
-    betas[1] = beta - sofar
-  }
-  
   #Look for smallest S that is statistically significant and satisfies FDR condition
-  s = 2
-  while(s <= k) {
-    if (pvals[s] <= alpha/k && (is.null(beta) || samp[s] >= counts[s]/betas[s])) {
-      break
-    }
-    s = s + 1
-  }
-  if(s == k+1) {s=Inf}
+  ss = lapply(pvals,function(z) sstar(z,k,alpha))
   
   #Filter components of size at least s
-  subs = SubNetworks(En)
-  grs = Filter(function(x) length(x) >= s, subs)
-  
-  if(trace) {
-    if(s > k+1) {
-      print('No s satisfies conditions!')
-    } else {
-      print(sprintf('FOUND: s=%d',s))
-    }
-    print(sprintf('Alpha: %f, K: %d, Threshold: %f',alpha,k,delta))
-    print(data.frame(
-      s = 2:k,
-      Num_Components = samp[2:k],
-      pvals = pvals[2:k],
-      Exp_Num_Comp = counts[2:k]
-    ))
+  subs = lapply(Ens,function(z) SubNetworks(z))
+  grs = vector(mode='list',length=numvals)
+  for(i in 1:numvals) {
+    grs[[i]] = Filter(function(x) length(x) >= ss[i], subs[[i]])
   }
   
   #collect average correlation for each component across all subjects
   #and test for pvalue
-  aggres = integer(length(grs))
-  if(length(grs) > 0) {
-    for (i in 1:length(grs)) {
-      data = c()
-      data2 = c()
-      for(j in 1:n) {
-        sampcor = clean(cor(t(dats[[j]])))
-        slice = abs(fisherz(sampcor[grs[[i]],grs[[i]]]))
-        data = c(data, mean(slice,na.rm=TRUE))
-        if(!is.null(dats2)) {
-          sampcor2 = clean(cor(t(dats2[[j]])))
-          slice2 = abs(fisherz(sampcor2[grs[[i]],grs[[i]]]))
-          data2 = c(data2, mean(slice2,na.rm=TRUE))
+  data = lapply(grs, function(z) lapply(z,function(a) c()))
+  mus = lapply(grs, function(z) lapply(z,function(a) c()))
+  for(j in 1:n) {
+    sampcor = clean(cor(t(dats[[j]])))
+    nulldat = dats[[j]][sample(nrow(dats[[j]])),]
+    nullcor = clean(cor(t(nulldat)))
+    for(l in 1:numvals) {
+      deltagrs = grs[[l]]
+      if(length(deltagrs) > 0) {
+        for(i in 1:length(deltagrs)) {
+          nullslice = abs(fisherz(nullcor[deltagrs[[i]],deltagrs[[i]]]))
+          mus[[l]][[i]] = c(mus[[l]][[i]], mean(nullslice,na.rm=TRUE))
+          
+          slice = abs(fisherz(sampcor[deltagrs[[i]],deltagrs[[i]]]))
+          data[[l]][[i]] = c(data[[l]][[i]], mean(slice,na.rm=TRUE))
         }
       }
-      if(!is.null(dats2)) {
-        res = t.test(data,data2,paired = pr)
-      } else {
-        res = t.test(data,mu=fisherz(mu),paired = pr,alternative = 'greater')
-      }
-      aggres[i] = res$p.value
     }
   }
+  pvals = mus
+  for(l in 1:numvals) {
+    if(length(data[[l]]) > 0) {
+      for(i in 1:length(data[[l]])) {
+        pvals[[l]][[i]] = t.test(data[[l]][[i]],mus[[l]][[i]],paired = TRUE,alternative = 'greater')$p.value
+        # pvals[[l]][[i]] = t.test(data[[l]][[i]],mu=0,alternative = 'greater')$p.value
+      }
+    }
+  }
+  totalps = unlist(lapply(pvals,function(z) sum(unlist(z))))
+  totalps[which(totalps == 0)] = Inf
+  ind = which(totalps == min(totalps))
+  if(length(ind) != 1) {
+    print('ISSUE WITH GRID, MORE THAN ONE OR NO MIN')
+  }
+  print(sprintf('delta: %f',grid[ind]))
+  ind = ind[1]
   
-  return(list('groups'=grs,
-              'pvals'=formatC(aggres,format='e',digits=2),
-              'mat' = En,
-              's' = s))
+  return(list('groups'=grs[[ind]],
+              'pvals'=pvals[[ind]],
+              'totalpval' = totalps[[ind]],
+              'mat' = Ens[[ind]],
+              's' = ss[ind]))
+}
+
+sstar <- function(pvals,k,alpha) {
+  s = 2
+  while(s <= k) {
+    if (pvals[s] <= alpha/k) {
+      return(s)
+    }
+    s = s + 1
+  }
+  return(Inf)
 }
 
 #Runs siGGM with Diffusion, returns list where 'groups' is a list of vectors where each vector is a connected component 
@@ -213,7 +162,7 @@ SiGGM <- function(dats,struct,tuning,pr=FALSE,mu=0,dats2=NULL,naive=FALSE) {
   #extract connected components
   subs = SubNetworks(En)
   grs = Filter(function(x) length(x) > 1, subs)
-
+  
   #collect average correlation for each component across all subjects
   #and test for pvalue
   aggres = integer(length(grs))
@@ -307,24 +256,23 @@ H <- function(S,GI,delta) {
 #n: number of mc trials to run
 #delta: threshold to get reduced influence graph
 #pthresh: vector of values derived from real observation data, used as threshold to calculate pvalues
-MC <- function(S,GI,n,delta,pthresh=NA) {
+MC <- function(S,GI,n,deltas,pthreshes) {
   nregions = nrow(S)
-  counts = integer(nregions)
-  pvals = integer(nregions)
+  nvals = length(deltas)
+  counts = lapply(vector(mode='list',length=nvals),function(z) integer(nregions))
+  pvals = lapply(vector(mode='list',length=nvals),function(z) integer(nregions))
   for(i in 1:n) {
     nullS = matrix(sample(S),nrow=nrow(S))
-    nullH = H(nullS,GI,delta)
-    subs = SubCounts(nullH)
-    counts = counts + subs
-    if(!is.na(pthresh)) {
-      pvals = pvals + (subs >= pthresh)
+    for(j in 1:nvals) {
+      nullH = H(nullS,GI,deltas[j])
+      subs = SubCounts(nullH)
+      counts[[j]] = counts[[j]] + subs
+      pvals[[j]] = pvals[[j]] + (subs >= pthreshes[[j]])
     }
   }
-  
-  if(is.na(pthresh)) {
-    return(list('counts' = counts/n,'pvals' = NA))
-  }
-  return(list('counts' = counts/n,'pvals' = pvals/n))
+  counts = lapply(counts,function(x) x/n)
+  pvals = lapply(pvals,function(x) x/n)
+  return(list('counts' = counts,'pvals' = pvals))
 }
 
 #Find counts for every possible size of connected component in m
