@@ -1,68 +1,65 @@
-library('R.matlab')
+#Script to run recovery-rate simulation under noise
 source('heat.R')
-source('num2name.R')
-# source('simulate.R')
-# source('algos.R')
+library('Matrix')
 source('naive.R')
 
-subj = "tmmatrx_102513.rda"
-mat = readMat('whole_brain_AAL2.mat')$connectivity
 gamma = 30
 n=308
-m=200
+m=5
+noisevar=25000
 
-#### Simulation 1, Nathan's approach, using the true time course mean/sd and true structural
-# Linv = heat(mat,gamma,0,weighted=TRUE, trans = TRUE)
-# En = H(Linv,matrix(1,nrow=120,ncol=120),0.13)
-# En = H(Linv,matrix(1,nrow=120,ncol=120),0)
-En = hypo
-En = zero.out(En,8)
-real = SubNetworks(En)
-# linvthresh = 0.17
+naiparam = 1e-3
+resparam = 0.00035
+higparam = 0.00025
 
-err <- function( x, y) { sum(lengths(setdiff( union(x, y), intersect(x, y))))}
-
-recovery_rate <- function(estimate,true) {
-  correct = 0
-  for(gr in true) {
-    if (Position(function(x) err(gr,x) <= 2, estimate, nomatch = 0) > 0) {
-      correct = correct + 1
+for (batch in 2) {
+  print(sprintf('BATCH: %d',batch))
+  load(sprintf('hypo%d.rda',batch))
+  Linv = heat(hypo,gamma,0,weighted=TRUE, trans = TRUE)
+  real = SubNetworks(hypo)
+  
+  err <- function( x, y) { sum(lengths(setdiff( union(x, y), intersect(x, y))))}
+  
+  recovery_rate <- function(estimate,true) {
+    correct = 0
+    for(gr in true) {
+      if (Position(function(x) err(gr,x) <= 2, estimate, nomatch = 0) > 0) {
+        correct = correct + 1
+      }
+    }
+    return(correct/length(true))
+  }
+  
+  neurrates = c()
+  higrates = c()
+  naiverates = c()
+  oldhigrates = c()
+  for(j in 1:m) {
+    print(sprintf('TRIAL: %d',j))
+    
+    tcs = list()
+    for(i in 1:n) {
+      tcs[[i]] = simFC(hypo,noisevar)
+    }
+    
+    fdr = NeurHot(tcs,Linv,0.1,10,1000)
+    nai = naive(tcs,naiparam)
+    res = SiGGM(tcs,Linv,resparam)
+    hig = SiGGM(tcs,hypo,higparam)
+    
+    neurrates = c(neurrates,recovery_rate(fdr$groups,real))
+    higrates = c(higrates,recovery_rate(res$groups,real))
+    naiverates = c(naiverates,recovery_rate(nai$groups,real))
+    oldhigrates = c(oldhigrates,recovery_rate(hig$groups,real))
+    
+    if(j %% 25 == 0) {
+      results = list(naiverates,oldhigrates,higrates,neurrates)
+      save(results,file=sprintf('rates_%d_intermediate_2022.rda',batch-1))
     }
   }
-  return(correct/length(true))
+  
+  results = list(naiverates,oldhigrates,higrates,neurrates)
+  save(results,file=sprintf('rates_%d_2022.rda',batch-1))
+  
+  print(lapply(results, mean))
 }
-
-neurrates = c()
-higrates = c()
-naiverates = c()
-for(j in 1:m) {
-  print(j)
-  
-  tcs = list()
-  for(i in 1:n) {
-    tcs[[i]] = simulate(subj, En,noisevar = 35000)
-    # tcs[[i]] = simulate(subj, En)
-  }
-  
-  # Linv = heat(En,gamma,0,weighted=TRUE, trans = TRUE)
-  # fdr = NeurHot(tcs,Linv,0.1,10,1000,14,trace = TRUE)
-  nai = naive(tcs,1e-3)
-  # res = SiGGM(tcs,En,0.000291)
-  
-  # neurrates = c(neurrates,recovery_rate(fdr$groups,real))
-  # higrates = c(higrates,recovery_rate(res$groups,real))
-  naiverates = c(naiverates,recovery_rate(nai$groups,real))
-}
-
-neurrate = mean(neurrates)
-higrate = mean(higrates)
-naiverate = mean(naiverates)
-
-# if(trace) {
-#   print('NeuroHotnet Results')
-#   print(neurrate)
-#   print('SiGGM Results')
-#   print(higrate)
-#   print('Naive Results')
-#   print(naiverate)
-# }

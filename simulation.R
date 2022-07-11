@@ -1,3 +1,4 @@
+#Messy script to run various contrived edge case simulations
 subj = "tmmatrx_102513.rda"
 mat = readMat('whole_brain_AAL2.mat')$connectivity
 gamma = 30

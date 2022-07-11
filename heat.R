@@ -7,13 +7,6 @@ library(DescTools)
 library(glasso)
 library(R.matlab)
 
-### Load the task onset files
-### for more information on onsets and tasks see 
-### https://protocols.humanconnectome.org/HCP/3T/task-fMRI-protocol-details.html
-### the data we are using are based on the motor task
-setwd('~/Desktop/NeuroHotnetHD')
-
-#Function to load connectivity matrix and run weighted diffusion process on it
 #mat: matrix representation of the graph to run diffusion on
 #gamma: flow rate parameter
 #thresh: pre-threshold before running diffusion
@@ -24,7 +17,6 @@ heat <- function(mat,gamma,thresh,weighted=TRUE,trans=FALSE,plot=FALSE) {
   
   #For weighted diffusion we don't thresh old
   if (weighted) {
-    # adj = final.mat > 0
     adj = mat
   } else {
     adj = mat > thresh

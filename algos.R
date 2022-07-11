@@ -7,19 +7,13 @@ library('psych')
 
 #Runs the NeuroHotnet algorithm, returns list where 'groups' is a list of vectors where each vector is a connected component 
 #detected as significant. 'pvals' is the pvalue of each component in 'groups'. 'mat' contains FC estimates for all edges. 's'
-#is the found s^*
+#is the found s^*. 'totalpval' is the sum of 'pvals'. 'densities' is the average of edge weights in the component normalized
+#by the average of all edge weights in the graph
 #dats: list of regions x timepoints observation data matrices (or single, if more than 1 average correlation is used)
 #struct: regions x regions structural data (result of diffusion)
 #alpha: significance level
 #k: max component size tested
-#delta: threshold for reduced influence graph (struct)
-#numtrials: number of trials for monte carlo
-#pr: should a paired (vs unpaired) t.test be run when testing components
-#trace: should it print results for each threshold?
-#mu: if non-null, the constant mean under null hypothesis that the mean of dats 
-#for each component is t-tested against
-#dats2: if non-null AND MU IS NULL, the second set of data for two sample t-test
-#beta: if non-null the FDR controlling condition is turned on when testing for s^*
+#numtrials: number of trials for all monte carlo simulations
 NeurHot <- function(dats,struct,alpha,k,numtrials) {
   
   #Works for when dats isn't a list too
@@ -36,21 +30,18 @@ NeurHot <- function(dats,struct,alpha,k,numtrials) {
     model = model + loccor/n
   }
   
-  # model = model/mean(model)
-  # struct = struct/mean(struct)
-  
   #Make grid of deltas to test
   runs = numtrials
   range = integer(2)
   for(i in 1:runs){
     En = matrix(sample(model),nrow=nrow(model)) * struct
     percentiles = quantile(En, probs = seq(0, 1, 0.0005))
-    range = range + c(percentiles[1994],percentiles[2000])
+    range = range + c(percentiles[1997],percentiles[2000])
   }
   # for real data use percentiles[1997] to [2000] and 10 numvals if you want to cut out first local min ;)
   range = range/runs
   print(range)
-  numvals = 20
+  numvals = 10
   grid = seq(from=range[1], to=range[2], length.out=numvals)
   
   #Run mc for pvals and expected counts
@@ -96,7 +87,6 @@ NeurHot <- function(dats,struct,alpha,k,numtrials) {
     if(length(data[[l]]) > 0) {
       for(i in 1:length(data[[l]])) {
         pvals[[l]][[i]] = t.test(data[[l]][[i]],mus[[l]][[i]],paired = TRUE,alternative = 'greater')$p.value
-        # pvals[[l]][[i]] = t.test(data[[l]][[i]],mu=0,alternative = 'greater')$p.value
       }
     }
   }
@@ -105,6 +95,7 @@ NeurHot <- function(dats,struct,alpha,k,numtrials) {
   ind = which(totalps == min(totalps))
   if(length(ind) != 1) {
     print('ISSUE WITH GRID, MORE THAN ONE OR NO MIN')
+    print(grid)
   }
   print(sprintf('delta: %f',grid[ind]))
   ind = ind[1]
@@ -113,9 +104,13 @@ NeurHot <- function(dats,struct,alpha,k,numtrials) {
               'pvals'=pvals[[ind]],
               'totalpval' = totalps[[ind]],
               'mat' = Ens[[ind]],
+              'densities' = densities(zero.out(Ens[[ind]],ss[[ind]]-1)),
               's' = ss[ind]))
 }
 
+#Finds s^* given pvals from monte carlo simulation
+#Returns smallest s such that corresponding pvalue is significant using
+#Bonferroni correction with alpha and k
 sstar <- function(pvals,k,alpha) {
   s = 2
   while(s <= k) {
@@ -128,17 +123,12 @@ sstar <- function(pvals,k,alpha) {
 }
 
 #Runs siGGM with Diffusion, returns list where 'groups' is a list of vectors where each vector is a connected component 
-#detected as significant. 'pvals' is the pvalue of each component in 'groups'. 'mat' contains FC estimates for all edges. 's'
-#is the found s^*
+#detected as significant. 'pvals' is the pvalue of each component in 'groups'. 'mat' contains FC estimates for all edges.
 #dats: list of regions x timepoints observation data matrices (or single, if more than 1 average covariance is used)
 #struct: regions x regions structural data (result of diffusion)
 #tuning: nu parameter in Higgins paper, controls overall sparsity
-#pr: should a paired (vs unpaired) t.test be run when testing components
-#mu: if non-null, the constant mean under null hypothesis that the mean of dats 
-#for each component is t-tested against
-#dats2: if non-null AND MU IS NULL, the second set of data for two sample t-test
 #naive: if TRUE turns off effect of structural, SC-naive
-SiGGM <- function(dats,struct,tuning,pr=FALSE,mu=0,dats2=NULL,naive=FALSE) {
+SiGGM <- function(dats,struct,tuning,naive=FALSE) {
   
   #Works for when dats isn't a list too
   if(!is.list(dats)) {dats = list(dats)}
@@ -165,32 +155,27 @@ SiGGM <- function(dats,struct,tuning,pr=FALSE,mu=0,dats2=NULL,naive=FALSE) {
   
   #collect average correlation for each component across all subjects
   #and test for pvalue
-  aggres = integer(length(grs))
-  if(length(grs) > 0) {
-    for (i in 1:length(grs)) {
-      data = c()
-      data2 = c()
-      for(j in 1:n) {
-        sampcor = clean(cor(t(dats[[j]])))
-        slice = abs(fisherz(sampcor[grs[[i]],grs[[i]]]))
-        data = c(data, mean(slice,na.rm=TRUE))
-        if(!is.null(dats2)) {
-          sampcor2 = clean(cor(t(dats2[[j]])))
-          slice2 = abs(fisherz(sampcor2[grs[[i]],grs[[i]]]))
-          data2 = c(data2, mean(slice2,na.rm=TRUE))
-        }
-      }
-      if(!is.null(dats2)) {
-        res = t.test(data,data2,paired = pr)
-      } else {
-        res = t.test(data,mu=fisherz(mu),paired = pr,alternative = 'greater')
-      }
-      aggres[i] = res$p.value
+  data = lapply(grs, function(z) c())
+  mus = lapply(grs, function(z) c())
+  for(j in 1:n) {
+    sampcor = clean(cor(t(dats[[j]])))
+    nulldat = dats[[j]][sample(nrow(dats[[j]])),]
+    nullcor = clean(cor(t(nulldat)))
+    for(i in 1:length(grs)) {
+      nullslice = abs(fisherz(nullcor[grs[[i]],grs[[i]]]))
+      mus[[i]] = c(mus[[i]], mean(nullslice,na.rm=TRUE))
+
+      slice = abs(fisherz(sampcor[grs[[i]],grs[[i]]]))
+      data[[i]] = c(data[[i]], mean(slice,na.rm=TRUE))
     }
+  }
+  pvals = mus
+  for(i in 1:length(data)) {
+    pvals[i] = t.test(data[[i]],mus[[i]],paired = TRUE,alternative = 'greater')$p.value
   }
   
   return(list('groups'=grs,
-              'pvals'=formatC(aggres,format='e',digits=2),
+              'pvals'=pvals,
               'mat' = En))
 }
 
@@ -254,8 +239,9 @@ H <- function(S,GI,delta) {
 #S: Correlation matrix from observation data
 #GI: structural matrix/influence graph
 #n: number of mc trials to run
-#delta: threshold to get reduced influence graph
-#pthresh: vector of values derived from real observation data, used as threshold to calculate pvalues
+#deltas: list of thresholds to test
+#pthreshes: list of vectors of values derived from real observation data, one for each delta, 
+#used as threshold to calculate pvalues
 MC <- function(S,GI,n,deltas,pthreshes) {
   nregions = nrow(S)
   nvals = length(deltas)
